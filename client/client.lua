@@ -361,28 +361,33 @@ end)
 ---------------------------------------------
 RegisterNetEvent('rsg-camping:client:placeNewProp')
 AddEventHandler('rsg-camping:client:placeNewProp', function(proptype, pHash, item)
+    RSGCore.Functions.TriggerCallback('rsg-camping:server:countprop', function(result)
+        if proptype == 'camptent' and result > 0 then
+            lib.notify({ title = 'Campsite Already Setup', description = 'you can only have one tent deployed', type = 'error', duration = 7000 })
+            return
+        end
+        local pos = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 3.0, 0.0)
+        local heading = GetEntityHeading(PlayerPedId())
+        local ped = PlayerPedId()
 
-    local pos = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 3.0, 0.0)
-    local heading = GetEntityHeading(PlayerPedId())
-    local ped = PlayerPedId()
+        if CanPlacePropHere(pos) and not IsPedInAnyVehicle(PlayerPedId(), false) and not isBusy then
+            isBusy = true
+            local anim1 = `WORLD_HUMAN_CROUCH_INSPECT`
+            FreezeEntityPosition(ped, true)
+            TaskStartScenarioInPlace(ped, anim1, 0, true)
+            Wait(10000)
+            ClearPedTasks(ped)
+            FreezeEntityPosition(ped, false)
+            TriggerServerEvent('rsg-camping:server:newProp', proptype, pos, heading, pHash)
+            isBusy = false
 
-    if CanPlacePropHere(pos) and not IsPedInAnyVehicle(PlayerPedId(), false) and not isBusy then
-        isBusy = true
-        local anim1 = `WORLD_HUMAN_CROUCH_INSPECT`
-        FreezeEntityPosition(ped, true)
-        TaskStartScenarioInPlace(ped, anim1, 0, true)
-        Wait(10000)
-        ClearPedTasks(ped)
-        FreezeEntityPosition(ped, false)
-        TriggerServerEvent('rsg-camping:server:newProp', proptype, pos, heading, pHash)
-        isBusy = false
+            return
+        end
 
-        return
-    end
+        lib.notify({ title = 'Restricted Area', description = 'can\'t place it here!', type = 'error', duration = 7000 })
 
-    lib.notify({ title = 'Restricted Area', description = 'can\'t place it here!', type = 'error', duration = 7000 })
-
-    Wait(3000)
+        Wait(3000)
+    end, proptype)
 end)
 
 ---------------------------------------------

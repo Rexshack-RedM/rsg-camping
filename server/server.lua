@@ -70,6 +70,21 @@ RSGCore.Functions.CreateCallback('rsg-camping:server:getallpropdata', function(s
 end)
 
 ---------------------------------------------
+-- count props
+---------------------------------------------
+RSGCore.Functions.CreateCallback('rsg-camping:server:countprop', function(source, cb, proptype)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    local citizenid = Player.PlayerData.citizenid
+    local result = MySQL.prepare.await("SELECT COUNT(*) as count FROM player_campsite WHERE citizenid = ? AND proptype = ?", { citizenid, proptype })
+    if result then
+        cb(result)
+    else
+        cb(nil)
+    end
+end)
+
+---------------------------------------------
 -- update prop data
 ---------------------------------------------
 CreateThread(function()
