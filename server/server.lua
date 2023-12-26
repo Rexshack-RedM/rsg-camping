@@ -60,14 +60,18 @@ end)
 -- get all prop data
 ---------------------------------------------
 RSGCore.Functions.CreateCallback('rsg-camping:server:getallpropdata', function(source, cb, propid)
-    MySQL.query('SELECT * FROM player_campsite WHERE propid = ?', {propid}, function(result)
-        if result[1] then
-            cb(result)
+    local query = 'SELECT * FROM player_campsite WHERE propid = @propid'
+    local parameters = {['@propid'] = propid}
+
+    MySQL.query(query, parameters, function(result)
+        if result then
+            cb(result[1])  
         else
             cb(nil)
         end
     end)
 end)
+
 
 ---------------------------------------------
 -- count props
@@ -76,11 +80,19 @@ RSGCore.Functions.CreateCallback('rsg-camping:server:countprop', function(source
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
     local citizenid = Player.PlayerData.citizenid
-    local result = MySQL.prepare.await("SELECT COUNT(*) as count FROM player_campsite WHERE citizenid = ? AND proptype = ?", { citizenid, proptype })
-    if result then
-        cb(result)
+
+    local query = 'SELECT COUNT(*) as count FROM player_campsite WHERE citizenid = ? AND proptype = ?'
+    local values = {citizenid, proptype}
+
+    local success, count = pcall(function()
+        return MySQL.Sync.fetchScalar(query, values)
+    end)
+
+    if success then
+        cb(count)
     else
-        cb(nil)
+        print("Error in database query:", count)
+        cb(nil)        
     end
 end)
 
@@ -112,14 +124,23 @@ RegisterServerEvent('rsg-camping:server:saveProp')
 AddEventHandler('rsg-camping:server:saveProp', function(data, propId, citizenid, proptype)
     local datas = json.encode(data)
 
-    MySQL.Async.execute('INSERT INTO player_campsite (properties, propid, citizenid, proptype) VALUES (@properties, @propid, @citizenid, @proptype)',
-    {
+    local query = 'INSERT INTO player_campsite (properties, propid, citizenid, proptype) VALUES (@properties, @propid, @citizenid, @proptype)'
+    local values = {
         ['@properties'] = datas,
         ['@propid'] = propId,
         ['@citizenid'] = citizenid,
         ['@proptype'] = proptype
-    })
+    }
+
+    local success, _ = pcall(function()
+        MySQL.Async.execute(query, values)
+    end)
+
+    if not success then
+        print("Error saving prop to the database")        
+    end
 end)
+
 
 ---------------------------------------------
 -- new prop
@@ -200,43 +221,63 @@ AddEventHandler('rsg-camping:server:updateCampProps', function(id, data)
         ['@propid'] = id
     })
 
-    if not result[1] then return end
+    if not result[1] then
+        return
+    end
 
     local newData = json.encode(data)
 
-    MySQL.Async.execute('UPDATE player_campsite SET properties = @properties WHERE propid = @id',
-    {
+    local updateQuery = 'UPDATE player_campsite SET properties = @properties WHERE propid = @id'
+    local updateValues = {
         ['@properties'] = newData,
         ['@id'] = id
-    })
+    }
+
+    local success, _ = pcall(function()
+        MySQL.Async.execute(updateQuery, updateValues)
+    end)
+
+    if not success then
+        print("Error updating campsite properties")        
+    end
 end)
+
 
 ---------------------------------------------
 -- remove props
 ---------------------------------------------
 RegisterServerEvent('rsg-camping:server:PropRemoved')
 AddEventHandler('rsg-camping:server:PropRemoved', function(propId)
-    local result = MySQL.query.await('SELECT * FROM player_campsite')
+    local result = MySQL.query.await('SELECT * FROM player_campsite WHERE propid = @propid',
+    {
+        ['@propid'] = propId
+    })
 
-    if not result then return end
+    if not result or not result[1] then
+        return
+    end
 
-    for i = 1, #result do
-        local propData = json.decode(result[i].properties)
+    local propData = json.decode(result[1].properties)
 
-        if propData.id == propId then
-            MySQL.Async.execute('DELETE FROM player_campsite WHERE id = @id',
-            {
-                ['@id'] = result[i].id
-            })
+    local success, _ = pcall(function()
+        MySQL.Async.execute('DELETE FROM player_campsite WHERE propid = @propid',
+        {
+            ['@propid'] = propId
+        })
+    end)
 
-            for k, v in pairs(Config.PlayerProps) do
-                if v.id == propId then
-                    table.remove(Config.PlayerProps, k)
-                end
-            end
+    if not success then
+        print("Error removing campsite property from the database")        
+        return
+    end
+
+    for k, v in pairs(Config.PlayerProps) do
+        if v.id == propId then
+            table.remove(Config.PlayerProps, k)
         end
     end
 end)
+
 
 ---------------------------------------------
 -- get props
@@ -245,42 +286,84 @@ RegisterServerEvent('rsg-camping:server:getProps')
 AddEventHandler('rsg-camping:server:getProps', function()
     local result = MySQL.query.await('SELECT * FROM player_campsite')
 
-    if not result[1] then return end
+    if not result or not result[1] then
+        print("Error fetching campsite properties from the database")        
+        return
+    end
 
     for i = 1, #result do
         local propData = json.decode(result[i].properties)
-        print('loading '..propData.proptype..' prop with ID: '..propData.id)
+        print(('Loading %s prop with ID: %s'):format(propData.proptype, propData.id))
         table.insert(Config.PlayerProps, propData)
     end
 end)
 
+
 ---------------------------------------------
 -- add credit
 ---------------------------------------------
-RegisterNetEvent('rsg-camping:server:addcredit', function(newcredit, removemoney, propid)
+RegisterNetEvent('rsg-camping:server:addcredit')
+AddEventHandler('rsg-camping:server:addcredit', function(newcredit, removemoney, propid)
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
-    -- remove money
+
+    -- Retirar dinero
     Player.Functions.RemoveMoney("cash", removemoney, "camp-credit")
-    -- sql update
-    MySQL.update('UPDATE player_campsite SET credit = ? WHERE propid = ?', {newcredit, propid})
-    -- notify
-    TriggerClientEvent('ox_lib:notify', src, {title = 'Credit Added', description = 'credit is now $'..newcredit, type = 'inform', duration = 5000 })
+
+    -- Actualizar crédito en la base de datos
+    local updateQuery = 'UPDATE player_campsite SET credit = ? WHERE propid = ?'
+    local updateValues = {newcredit, propid}
+
+    local success, _ = pcall(function()
+        MySQL.Async.execute(updateQuery, updateValues)
+    end)
+
+    if not success then
+        print("Error updating campsite credit in the database")
+        -- Trata el error de alguna manera
+        return
+    end
+
+    -- Notificar al cliente
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Credit Added',
+        description = ('Credit is now $%s'):format(newcredit),
+        type = 'inform',
+        duration = 5000
+    })
 end)
+
 
 ---------------------------------------------
 -- remove credit
 ---------------------------------------------
-RegisterNetEvent('rsg-camping:server:removecredit', function(newcredit, addmoney, propid)
+RegisterNetEvent('rsg-camping:server:removecredit')
+AddEventHandler('rsg-camping:server:removecredit', function(newcredit, addmoney, propid)
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
-    -- remove money
+    
     Player.Functions.AddMoney("cash", addmoney, "camp-credit")
-    -- sql update
-    MySQL.update('UPDATE player_campsite SET credit = ? WHERE propid = ?', {newcredit, propid})
-    -- notify
-    TriggerClientEvent('ox_lib:notify', src, {title = 'Credit Removed', description = 'credit is now $'..newcredit, type = 'inform', duration = 5000 })
+
+    local updateQuery = 'UPDATE player_campsite SET credit = ? WHERE propid = ?'
+    local updateValues = {newcredit, propid}
+
+    local success, _ = pcall(function()
+        MySQL.Async.execute(updateQuery, updateValues)
+    end)
+
+    if not success then
+        print("Error updating campsite credit in the database")        
+        return
+    end
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Credit Removed',
+        description = ('Credit is now $%s'):format(newcredit),
+        type = 'inform',
+        duration = 5000
+    })
 end)
+
 
 ---------------------------------------------
 -- remove item
@@ -336,6 +419,8 @@ UpkeepInterval = function()
     SetTimeout(Config.BillingCycle * (60 * 60 * 1000), UpkeepInterval) -- hours
     --SetTimeout(Config.BillingCycle * (60 * 1000), UpkeepInterval) -- mins (for testing)
 end
+
+
 
 SetTimeout(Config.BillingCycle * (60 * 60 * 1000), UpkeepInterval) -- hours
 --SetTimeout(Config.BillingCycle * (60 * 1000), UpkeepInterval) -- mins (for testing)
