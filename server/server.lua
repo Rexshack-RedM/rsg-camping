@@ -318,7 +318,7 @@ UpkeepInterval = function()
             MySQL.update('DELETE FROM player_campsite WHERE propid = ?', {row.propid})
 
             if Config.PurgeStorage then
-                MySQL.update('DELETE FROM stashitems WHERE stash = ?', { 'campsite_'..row.citizenid })
+                MySQL.update('DELETE FROM stashitems WHERE stash = ?', { 'camp_'..row.citizenid })
             end
             
             if Config.ServerNotify == true then
