@@ -1,6 +1,7 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
 local SpawnedProps = {}
 local isBusy = false
+local showingtext = false
 
 ---------------------------------------------
 -- spawn props
@@ -78,27 +79,6 @@ Citizen.CreateThread(function()
 end)
 
 ---------------------------------------------
--- get closest prop
----------------------------------------------
-function GetClosestProp()
-    local dist = 1000
-    local ped = PlayerPedId()
-    local pos = GetEntityCoords(ped)
-    local prop = {}
-
-    for i = 1, #Config.PlayerProps do
-        local xd = GetDistanceBetweenCoords(pos.x, pos.y, pos.z, Config.PlayerProps[i].x, Config.PlayerProps[i].y, Config.PlayerProps[i].z, true)
-
-        if xd < dist then
-            dist = xd
-            prop = Config.PlayerProps[i]
-        end
-    end
-
-    return prop
-end
-
----------------------------------------------
 -- trigger promps
 ---------------------------------------------
 Citizen.CreateThread(function()
@@ -111,20 +91,25 @@ Citizen.CreateThread(function()
                 local campprop = vector3(v.x, v.y, v.z)
                 local dist = #(pos - campprop)
                 if dist < 3 and not IsPedInAnyVehicle(PlayerPedId(), false) then
-                    lib.showTextUI('['..Config.MenuKeybind..'] - Open Menu', {
-                        position = "top-center",
-                        icon = 'fa-solid fa-bars',
-                        style = {
-                            borderRadius = 0,
-                            backgroundColor = '#82283E',
-                            color = 'white'
-                        }
-                    })
+                    if not showingtext then
+                        lib.showTextUI('['..Config.MenuKeybind..'] - Open Menu', {
+                            position = "top-center",
+                            icon = 'fa-solid fa-bars',
+                            style = {
+                                borderRadius = 0,
+                                backgroundColor = '#82283E',
+                                color = 'white'
+                            }
+                        })
+                        showingtext = true
+                    end
                     if IsControlJustReleased(0, RSGCore.Shared.Keybinds[Config.MenuKeybind]) then
                         TriggerEvent('rsg-camping:client:mainmenu', v.builder)
                     end
                 else
+                    Wait(1000)
                     lib.hideTextUI()
+                    showingtext = false
                 end
             end
         end
