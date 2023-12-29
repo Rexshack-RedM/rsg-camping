@@ -143,6 +143,13 @@ RegisterNetEvent('rsg-camping:client:mainmenu', function(builder)
                     event = 'rsg-camping:client:campstorage',
                     arrow = true
                 },
+                {
+                    title = 'Buy Equipment',
+                    description = 'buy equipment to add to your camp',
+                    icon = 'fa-solid fa-basket-shopping',
+                    event = 'rsg-camping:client:campingequipment',
+                    arrow = true
+                },
             }
         })
         lib.showContext("camp_mainmenu")
@@ -432,6 +439,18 @@ RegisterNetEvent('rsg-camping:client:campstorage', function()
     local playercid = PlayerData.citizenid
     TriggerServerEvent("inventory:server:OpenInventory", "stash", 'camp_'..playercid, { maxweight = Config.StorageMaxWeight, slots = Config.StorageMaxSlots })
     TriggerEvent("inventory:client:SetCurrentStash", 'camp_'..playercid)
+end)
+
+---------------------------------------------
+-- buy camp equipment
+---------------------------------------------
+RegisterNetEvent('rsg-camping:client:campingequipment')
+AddEventHandler('rsg-camping:client:campingequipment', function()
+    local CampingItems = {}
+    CampingItems.label = "Camping Equipment"
+    CampingItems.items = Config.CampingEquipment
+    CampingItems.slots = #Config.CampingEquipment
+    TriggerServerEvent("inventory:server:OpenInventory", "shop", "CampingEquipment_"..math.random(1, 99), CampingItems)
 end)
 
 ---------------------------------------------
