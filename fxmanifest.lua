@@ -3,7 +3,7 @@ rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aw
 game 'rdr3'
 
 description 'rsg-camping'
-version '1.0.4'
+version '1.0.5'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -14,17 +14,14 @@ shared_scripts {
 }
 
 client_scripts {
-    '@PolyZone/client.lua',
-    '@PolyZone/BoxZone.lua',
-    '@PolyZone/EntityZone.lua',
-    '@PolyZone/CircleZone.lua',
-    '@PolyZone/ComboZone.lua',
     'client/client.lua',
+    'client/client_crafting.lua',
 }
 
 server_scripts {
-    'server/server.lua',
     '@oxmysql/lib/MySQL.lua',
+    'server/server.lua',
+    'server/server_crafting.lua',
 }
 
 dependencies {

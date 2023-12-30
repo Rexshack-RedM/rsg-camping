@@ -56,6 +56,12 @@ RSGCore.Functions.CreateUseableItem("camptorch", function(source)
     TriggerClientEvent('rsg-camping:client:placeNewProp', src, 'camptorch', `p_torchpost01x`, 'camptorch')
 end)
 
+-- use campcrafting
+RSGCore.Functions.CreateUseableItem("campcrafting", function(source)
+    local src = source
+    TriggerClientEvent('rsg-camping:client:placeNewProp', src, 'campcrafting', `mp005_s_posse_ammotable03x`, 'campcrafting')
+end)
+
 ---------------------------------------------
 -- get all prop data
 ---------------------------------------------
