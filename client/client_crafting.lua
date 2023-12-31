@@ -138,6 +138,11 @@ RegisterNetEvent('rsg-camping:client:craftitems', function(title, craftitems, cr
         canCancel = false,
         disableControl = true,
         label = 'Crafting ' .. title,
+        anim = {
+            dict = 'mech_inventory@crafting@fallbacks',
+            clip = 'full_craft_and_stow',
+            flag = 27,
+        },
     }) then
         -- crafting was successful
         TriggerServerEvent('rsg-camping:server:finishcrafting', craftitems, receive, giveamount, craftamount)
